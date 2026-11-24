@@ -1,0 +1,473 @@
+
+import tkinter as tk
+from tkinter import simpledialog, messagebox
+from datetime import date
+
+
+# PROYECTO PROGRAMACION ORIENTADA A OBJETOS
+# AUTOR: JHONIER ZABALA
+# SISTEMA DE CITAS MEDICAS
+
+
+# CLASE PERSONA
+class Persona:
+    def __init__(self, documento, nombre, nacimiento):
+        self.documento = documento
+        self.nombre = nombre
+        self.nacimiento = nacimiento
+
+    def calcular_edad(self):
+        hoy = date.today()
+        edad = hoy.year - self.nacimiento.year
+
+        if (hoy.month, hoy.day) < (
+            self.nacimiento.month, self.nacimiento.day
+        ):
+            edad -= 1
+
+        return edad
+
+    def es_mayor_edad(self):
+        return self.calcular_edad() >= 18
+
+    def get_nombre(self):
+        return self.nombre
+
+    def set_nombre(self, nombre):
+        self.nombre = nombre
+
+
+# CLASE PACIENTE
+class Paciente(Persona):
+    def __init__(self, documento, nombre, nacimiento,
+                 telefono, ciudad, estrato):
+        super().__init__(documento, nombre, nacimiento)
+        self.telefono = telefono
+        self.ciudad = ciudad
+        self.estrato = estrato
+        self.citas = []
+
+    def cantidad_citas(self):
+        return len(self.citas)
+
+    def cantidad_citas_por_mes(self, mes):
+        cantidad = 0
+
+        for cita in self.citas:
+            if cita.fecha.month == mes:
+                cantidad += 1
+
+        return cantidad
+
+    def cantidad_citas_por_especialidad(self, especialidad):
+        cantidad = 0
+
+        for cita in self.citas:
+            if cita.medico.especialidad == especialidad:
+                cantidad += 1
+
+        return cantidad
+
+
+# CLASE MEDICO
+class Medico(Persona):
+    def __init__(self, documento, nombre, nacimiento,
+                 especialidad, tipo_medico, sueldo):
+        super().__init__(documento, nombre, nacimiento)
+        self.especialidad = especialidad
+        self.tipo_medico = tipo_medico
+        self.sueldo = sueldo
+        self.citas = []
+        self.horarios = []
+
+    def calcular_sueldo_anual(self):
+        return self.sueldo * 12
+
+    def cantidad_citas(self):
+        return len(self.citas)
+
+    def verificar_disponibilidad(self, fecha, hora):
+        dias = [
+            "Lun", "Mar", "Mie", "Jue",
+            "Vie", "Sab", "Dom"
+        ]
+
+        dia = dias[fecha.weekday()]
+        disponible = False
+
+        for horario in self.horarios:
+            if horario.dia == dia and horario.hora == hora:
+                disponible = horario.disponibilidad
+
+        for cita in self.citas:
+            if cita.fecha == fecha and cita.hora == hora:
+                disponible = False
+
+        return disponible
+
+
+# CLASE HORARIO
+class Horario:
+    def __init__(self, dia, hora, medico):
+        self.dia = dia
+        self.hora = hora
+        self.medico = medico
+        self.disponibilidad = True
+
+
+# CLASE CITA
+class Cita:
+    def __init__(self, paciente, medico, fecha,
+                 hora, tipo, consultorio):
+        self.paciente = paciente
+        self.medico = medico
+        self.fecha = fecha
+        self.hora = hora
+        self.tipo = tipo
+        self.consultorio = consultorio
+
+    def consultar_medico(self):
+        return self.medico
+
+    def consultar_paciente(self):
+        return self.paciente
+
+
+# LISTAS DEL SISTEMA
+pacientes = []
+medicos = []
+citas = []
+
+
+# PEDIR INFORMACION
+def pedir(mensaje):
+    respuesta = simpledialog.askstring(
+        "Centro de Salud", mensaje
+    )
+
+    if respuesta is None:
+        return ""
+
+    return respuesta.strip()
+
+
+# REGISTRAR PACIENTE
+def registrar_paciente():
+    try:
+        documento = pedir("Documento del paciente:")
+        nombre = pedir("Nombre del paciente:")
+        nacimiento = date.fromisoformat(
+            pedir("Nacimiento AAAA-MM-DD:")
+        )
+        telefono = pedir("Telefono:")
+        ciudad = pedir("Ciudad:")
+        estrato = int(pedir("Estrato:"))
+
+        if documento == "" or nombre == "":
+            messagebox.showerror("Error", "Faltan datos")
+            return
+
+        for paciente in pacientes:
+            if paciente.documento == documento:
+                messagebox.showerror(
+                    "Error", "El paciente ya existe"
+                )
+                return
+
+        paciente = Paciente(
+            documento, nombre, nacimiento,
+            telefono, ciudad, estrato
+        )
+
+        pacientes.append(paciente)
+
+        messagebox.showinfo(
+            "Correcto", "Paciente registrado"
+        )
+        mostrar_informacion()
+
+    except ValueError:
+        messagebox.showerror(
+            "Error", "Revise la fecha y el estrato"
+        )
+
+
+# REGISTRAR MEDICO
+def registrar_medico():
+    try:
+        documento = pedir("Documento del medico:")
+        nombre = pedir("Nombre del medico:")
+        nacimiento = date.fromisoformat(
+            pedir("Nacimiento AAAA-MM-DD:")
+        )
+        especialidad = pedir("Especialidad:")
+        tipo = pedir("Tipo: Titular, Interino o Sustituto")
+        sueldo = float(pedir("Sueldo mensual:"))
+
+        if not documento or not nombre or not especialidad:
+            messagebox.showerror("Error", "Faltan datos")
+            return
+
+        for medico in medicos:
+            if medico.documento == documento:
+                messagebox.showerror(
+                    "Error", "El medico ya existe"
+                )
+                return
+
+        medico = Medico(
+            documento, nombre, nacimiento,
+            especialidad, tipo, sueldo
+        )
+
+        medicos.append(medico)
+
+        messagebox.showinfo(
+            "Correcto", "Medico registrado"
+        )
+        mostrar_informacion()
+
+    except ValueError:
+        messagebox.showerror(
+            "Error", "Revise los datos ingresados"
+        )
+
+
+# REGISTRAR HORARIO
+def registrar_horario():
+    documento = pedir("Documento del medico:")
+
+    for medico in medicos:
+        if medico.documento == documento:
+            try:
+                dia = pedir(
+                    "Dia: Lun, Mar, Mie, Jue, Vie o Sab"
+                ).capitalize()
+
+                hora = int(pedir("Hora de 6 a 18:"))
+
+                if dia not in [
+                    "Lun", "Mar", "Mie",
+                    "Jue", "Vie", "Sab"
+                ] or hora < 6 or hora > 18:
+                    messagebox.showerror(
+                        "Error", "Horario incorrecto"
+                    )
+                    return
+
+                for h in medico.horarios:
+                    if h.dia == dia and h.hora == hora:
+                        messagebox.showerror(
+                            "Error", "Horario ya registrado"
+                        )
+                        return
+
+                horario = Horario(dia, hora, medico)
+                medico.horarios.append(horario)
+
+                messagebox.showinfo(
+                    "Correcto", "Horario registrado"
+                )
+                mostrar_informacion()
+                return
+
+            except ValueError:
+                messagebox.showerror(
+                    "Error", "Hora incorrecta"
+                )
+                return
+
+    messagebox.showerror("Error", "Medico no encontrado")
+
+
+# AGENDAR CITA
+def agendar_cita():
+    documento_paciente = pedir("Documento del paciente:")
+    documento_medico = pedir("Documento del medico:")
+
+    paciente_elegido = None
+    medico_elegido = None
+
+    for paciente in pacientes:
+        if paciente.documento == documento_paciente:
+            paciente_elegido = paciente
+
+    for medico in medicos:
+        if medico.documento == documento_medico:
+            medico_elegido = medico
+
+    if paciente_elegido is None or medico_elegido is None:
+        messagebox.showerror(
+            "Error", "Paciente o medico no encontrado"
+        )
+        return
+
+    try:
+        fecha = date.fromisoformat(
+            pedir("Fecha cita AAAA-MM-DD:")
+        )
+        hora = int(pedir("Hora de la cita:"))
+
+        if fecha < date.today():
+            messagebox.showerror(
+                "Error", "La fecha ya paso"
+            )
+            return
+
+        if not medico_elegido.verificar_disponibilidad(
+            fecha, hora
+        ):
+            messagebox.showerror(
+                "Error", "El medico no tiene horario disponible"
+            )
+            return
+
+        for cita in paciente_elegido.citas:
+            if cita.fecha == fecha and cita.hora == hora:
+                messagebox.showerror(
+                    "Error", "El paciente ya tiene una cita"
+                )
+                return
+
+        tipo = pedir(
+            "Tipo: General, Odontologia o Especialista"
+        )
+        consultorio = pedir("Numero de consultorio:")
+
+        nueva_cita = Cita(
+            paciente_elegido,
+            medico_elegido,
+            fecha,
+            hora,
+            tipo,
+            consultorio
+        )
+
+        citas.append(nueva_cita)
+        paciente_elegido.citas.append(nueva_cita)
+        medico_elegido.citas.append(nueva_cita)
+
+        messagebox.showinfo(
+            "Correcto", "Cita agendada correctamente"
+        )
+        mostrar_informacion()
+
+    except ValueError:
+        messagebox.showerror(
+            "Error", "Fecha u hora incorrecta"
+        )
+
+
+# MOSTRAR INFORMACION
+def mostrar_informacion():
+    pantalla.delete("1.0", tk.END)
+
+    pantalla.insert(
+        tk.END, "===== PACIENTES =====\n\n"
+    )
+
+    for paciente in pacientes:
+        pantalla.insert(
+            tk.END,
+            f"Nombre: {paciente.get_nombre()}\n"
+            f"Documento: {paciente.documento}\n"
+            f"Edad: {paciente.calcular_edad()}\n"
+            f"Ciudad: {paciente.ciudad}\n"
+            f"Citas: {paciente.cantidad_citas()}\n\n"
+        )
+
+    pantalla.insert(
+        tk.END, "===== MEDICOS =====\n\n"
+    )
+
+    for medico in medicos:
+        pantalla.insert(
+            tk.END,
+            f"Nombre: {medico.get_nombre()}\n"
+            f"Documento: {medico.documento}\n"
+            f"Especialidad: {medico.especialidad}\n"
+            f"Sueldo anual: ${medico.calcular_sueldo_anual():,.0f}\n"
+            f"Citas: {medico.cantidad_citas()}\n"
+        )
+
+        for horario in medico.horarios:
+            pantalla.insert(
+                tk.END,
+                f"Horario: {horario.dia} "
+                f"{horario.hora}:00\n"
+            )
+
+        pantalla.insert(tk.END, "\n")
+
+    pantalla.insert(
+        tk.END, "===== CITAS MEDICAS =====\n\n"
+    )
+
+    for cita in citas:
+        pantalla.insert(
+            tk.END,
+            f"Paciente: {cita.consultar_paciente().get_nombre()}\n"
+            f"Medico: {cita.consultar_medico().get_nombre()}\n"
+            f"Fecha: {cita.fecha}\n"
+            f"Hora: {cita.hora}:00\n"
+            f"Tipo: {cita.tipo}\n"
+            f"Consultorio: {cita.consultorio}\n"
+            "-------------------------\n"
+        )
+
+
+# INTERFAZ GRAFICA
+ventana = tk.Tk()
+ventana.title("Centro de Salud - JHONIER ZABALA")
+ventana.geometry("600x650")
+
+titulo = tk.Label(
+    ventana,
+    text="SISTEMA DE CITAS MEDICAS",
+    font=("Arial", 16, "bold")
+)
+titulo.pack(pady=10)
+
+autor = tk.Label(
+    ventana,
+    text="JHONIER ZABALA - PROGRAMACION ORIENTADA A OBJETOS",
+    font=("Arial", 10)
+)
+autor.pack(pady=5)
+
+tk.Button(
+    ventana, text="Registrar paciente",
+    command=registrar_paciente, width=30
+).pack(pady=4)
+
+tk.Button(
+    ventana, text="Registrar medico",
+    command=registrar_medico, width=30
+).pack(pady=4)
+
+tk.Button(
+    ventana, text="Registrar horario",
+    command=registrar_horario, width=30
+).pack(pady=4)
+
+tk.Button(
+    ventana, text="Agendar cita",
+    command=agendar_cita, width=30
+).pack(pady=4)
+
+tk.Button(
+    ventana, text="Consultar informacion",
+    command=mostrar_informacion, width=30
+).pack(pady=4)
+
+pantalla = tk.Text(
+    ventana,
+    height=18,
+    width=65,
+    font=("Arial", 10)
+)
+pantalla.pack(pady=10, padx=10)
+
+mostrar_informacion()
+
+ventana.mainloop()
